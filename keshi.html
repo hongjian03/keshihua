@@ -80,7 +80,7 @@
             .style("opacity", 0);
 
         // 读取数据
-        d3.csv("model.csv").then(data => {
+        d3.csv("keshihua/model.csv").then(data => {
             // 将数据转换为数值类型
             data.forEach(d => {
                 d.涉及国家数量 = +d.涉及国家数量;
