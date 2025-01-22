@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>文案顾问整体能力图</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            width: auto;
+            height: auto;
+            padding: 8px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+        .axis-label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .grid line {
+            stroke: lightgrey;
+            stroke-opacity: 0.7;
+            shape-rendering: crispEdges;
+        }
+        .grid path {
+            stroke-width: 0;
+        }
+        .highlight {
+            fill: orange !important;
+            r: 7 !important;
+        }
+        .highlight-rect {
+            stroke-width: 3 !important;
+            stroke: orange !important;
+        }
+    </style>
+</head>
+<body>
+    <h2>文案顾问整体能力图</h2>
+    <div id="chart"></div>
+    <script>
+        // 设置画布大小
+        const margin = {top: 20, right: 30, bottom: 60, left: 80},
+              width = 1200 - margin.left - margin.right,
+              height = 800 - margin.top - margin.bottom;
+
+        // 创建SVG元素
+        const svg = d3.select("#chart").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // 创建一个3x6的网格
+        const rows = 3;
+        const cols = 6;
+        const cellSize = Math.min((width - 50) / cols, (height - 50) / rows);
+
+        // 创建缩放比例尺
+        const xScale = d3.scaleLinear().range([0, cellSize]);
+        const yScale = d3.scaleLinear().range([cellSize, 0]);
+
+        // 创建一个工具提示
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // 读取数据
+        d3.csv("keshihua/model.csv").then(data => {
+            // 将数据转换为数值类型
+            data.forEach(d => {
+                d.涉及国家数量 = +d.涉及国家数量;
+                d.涉及专业数量 = +d.涉及专业数量;
+                d.涉及国家大类数量 = +d.涉及国家大类数量;
+                d.涉及专业大类数量 = +d.涉及专业大类数量;
+            });
+
+            // 创建每个单元格的散点图
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    const cellData = data.filter(d => d.涉及专业大类数量 === rows - i && d.涉及国家大类数量 === j + 1);
+
+                    const cell = svg.append("g")
+                        .attr("transform", `translate(${j * (cellSize + 10)},${i * (cellSize + 10)})`)
+                        .on("mouseover", function() {
+                            d3.select(this).select("rect").classed("highlight-rect", true);
+                        })
+                        .on("mouseout", function() {
+                            d3.select(this).select("rect").classed("highlight-rect", false);
+                        });
+
+                    // 绘制方框
+                    cell.append("rect")
+                        .attr("width", cellSize)
+                        .attr("height", cellSize)
+                        .attr("fill", "none")
+                        .attr("stroke", "black");
+
+                    // 绘制网格
+                    cell.append("g")
+                        .attr("class", "grid")
+                        .call(d3.axisLeft(yScale).ticks(5).tickSize(-cellSize).tickFormat(''))
+                        .call(d3.axisBottom(xScale).ticks(5).tickSize(cellSize).tickFormat(''));
+
+                    xScale.domain([0, d3.max(data, d => d.涉及国家数量)]);
+                    yScale.domain([0, d3.max(data, d => d.涉及专业数量)]);
+
+                    cell.selectAll("circle")
+                        .data(cellData)
+                        .enter().append("circle")
+                        .attr("cx", d => xScale(d.涉及国家数量))
+                        .attr("cy", d => yScale(d.涉及专业数量))
+                        .attr("r", 5)
+                        .attr("fill", "steelblue")
+                        .attr("stroke", "white")
+                        .attr("stroke-width", 1.5)
+                        .on("mouseover", function(event, d) {
+                            d3.select(this).classed("highlight", true);
+                            tooltip.transition()
+                                .duration(200)
+                                .style("opacity", .9);
+                            tooltip.html(`文案顾问: ${d.文案顾问}<br>涉及国家数量: ${d.涉及国家数量}<br>涉及专业数量: ${d.涉及专业数量}`)
+                                .style("left", (event.pageX + 5) + "px")
+                                .style("top", (event.pageY - 28) + "px");
+                        })
+                        .on("mouseout", function(d) {
+                            d3.select(this).classed("highlight", false);
+                            tooltip.transition()
+                                .duration(500)
+                                .style("opacity", 0);
+                        });
+
+                    // 添加坐标轴
+                    cell.append("g")
+                        .attr("transform", `translate(0,${cellSize})`)
+                        .call(d3.axisBottom(xScale).ticks(3));
+
+                    cell.append("g")
+                        .call(d3.axisLeft(yScale).ticks(3));
+                }
+            }
+
+            // 添加下方的文字和箭头
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 40)
+                .attr("text-anchor", "middle")
+                .attr("class", "axis-label")
+                .text("国家线胜任能力");
+
+            svg.append("text")
+                .attr("x", width - 10)
+                .attr("y", height + 40)
+                .attr("text-anchor", "end")
+                .attr("class", "axis-label")
+                .text("胜任能力提升");
+
+            svg.append("line")
+                .attr("x1", width / 2 + 50)
+                .attr("y1", height + 30)
+                .attr("x2", width - 20)
+                .attr("y2", height + 30)
+                .attr("stroke", "black")
+                .attr("stroke-width", 2)
+                .attr("marker-end", "url(#arrow)");
+
+            // 添加左侧的文字和箭头
+            svg.append("text")
+                .attr("x", -height / 2)
+                .attr("y", -50)
+                .attr("text-anchor", "middle")
+                .attr("class", "axis-label")
+                .attr("transform", "rotate(-90)")
+                .text("专业性胜任力");
+
+            svg.append("text")
+                .attr("x", -height / 2)
+                .attr("y", -70)
+                .attr("text-anchor", "middle")
+                .attr("class", "axis-label")
+                .attr("transform", "rotate(-90)")
+                .text("胜任能力提升");
+
+            svg.append("line")
+                .attr("x1", -height / 2 + 50)
+                .attr("y1", -60)
+                .attr("x2", -20)
+                .attr("y2", -60)
+                .attr("stroke", "black")
+                .attr("stroke-width", 2)
+                .attr("marker-end", "url(#arrow)")
+                .attr("transform", "rotate(-90)");
+
+            // 定义箭头标记
+            svg.append("defs").append("marker")
+                .attr("id", "arrow")
+                .attr("viewBox", "0 0 10 10")
+                .attr("refX", 5)
+                .attr("refY", 5)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M 0 0 L 10 5 L 0 10 z")
+                .attr("fill", "black");
+        });
+    </script>
+</body>
+</html>
